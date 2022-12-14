@@ -7,11 +7,12 @@ Notes and thoughts on writing integration tests with TigerBeetle.
 
 One of the primary reasons for choosing TigerBeetle was for the ability to run it locally.
 
-Other ledgers I evaluated either required our tests to call a live API...
+Other ledgers I evaluated either required our tests to call a live API (great for simple tests but doesn't scale to large teams or automated tests), or spin up a flock of docker containers in order to run a local ledger. There's another post I'm yet to write about my choices for TigerBeetle, and where it fits in the spectrum of ledger databases, so I won't go into all of the choices here.
 
-But once I started writing integration tests of code which created Accounts or Transfers in TigerBeetle, I ran into a problem: There's no `TRUNCATE` or ...
+During my evaluation phase of TigerBeetle, when I tried to write integration tests for services which created Accounts or Transfers in TigerBeetle, I ran into a problem: TigerBeetle has no `TRUNCATE` or `DELETE`!
 
-While an append only ledger is desirable for the critical business function that TigerBeetle will handle, we need a way to either delete transfers or reset the database in order to test our code that depends on TigerBeetle.
+I can see the appeal of an append only ledger for the critical business functions that TigerBeetle will handle, but in order to adequately test our code that depends on TigerBeetle, we need a way to either isolate our tests from one another or reset the database in between tests.
+
 
 ## The Approach
 
@@ -115,7 +116,7 @@ export default class TBRunner {
    */
   public async spawnTBInstance(options: RunOptions = {}): Promise<RunningTBResult> {
     // sensible defaults
-    let pathToTBBinary = process.env.PATH_TO_TIGERBEETLE || './node_modules/tigerbeetle-node/tigerbeetle'
+    let pathToTBBinary = process.env.PATH_TO_TIGERBEETLE 
     fs.statSync(pathToTBBinary)
 
     let clusterId = 0n
@@ -279,16 +280,18 @@ const tbStartProcess = child_process.spawn( pathToTBBinary, startCmd)
 
 Which is our way of running `./tigerbeetle start --addresses=0.0.0.0:3000 0_0.tigerbeetle`.
 
-The other code around these two commands sets some sensible defaults, 
+The other code around these two commands sets some sensible defaults, finds a random free port to run TigerBeetle on, 
+and creates a temporary directory to put the `.tigerbeetle` file.
 
-<!-- TODO: finish code explanation -->
 
+### Installing TigerBeetle
 
-### Installing TB ?
+You can [follow the instructions](https://github.com/tigerbeetledb/tigerbeetle#single-binary) on the TigerBeetle repo to 
+install the TigerBeetle binary - and it looks like they have precompiled binaries hosted on GitHub you can download.
 
-From the above code, you can see that we can either specify an environment variable, `PATH_TO_TIGERBEETLE`, or the `TBRunner` will default to the tigerbeetle binary installed when you installed the `tigerbeetle-node` package. 
-<!-- TODO: verify the above statement -->
+The important thing is to grab the same version that the client, `tigerbeetle-node` uses, which as of the time of writing is 
 
+After that, in your local environment, set `PATH_TO_TIGERBEETLE` to wherever you installed the `tigerbeetle` binary.
 
 ### Running the test:
 
@@ -318,15 +321,35 @@ afterAll(async () => {
 
 ## An exapanded test case
 
-Now to prove that this approach works really well, let's run two test files with different tigerbeetles:
+Now to prove that this approach works really well, let's run two tests with different TigerBeetles:
 
 ```
 ```
 
+It works! 
+
+## Other Approachs
 
 
-## But Lewis, why not use docker containers?
+
+### But Lewis, why not use docker containers?
 
 I did! And it didn't work as nicely for me when getting this wode working on my CI/CD environment.
 
 You see
+
+
+### How about random `ledgerId`, `accountId` and `transferId`?
+
+For example, every test could use a random set of ids (namely ledgerId) that would allow us to isolate tests from one another. 
+Each test would essentially live in a different ledger from one another, so we wouldn't need to clean up the Accounts and 
+Transfers. In MySQL terms, its akin to creating a new database for every test, with a random name and ids we keep track of. 
+
+I had considered this approach (and I think it could work nicely), but I wanted to make my tests deterministic, and 
+I know that debugging random ids across different test files and console outputs gets old pretty quickly.
+
+## In Summary
+
+That's it for this post - I hope you managed to learn something about how TigerBeetle works, and how we can use unique 
+TigerBeetle instances for test isolation. With any luck, this will make your experience getting up and running with TigerBeetle
+just a little bit easier!
