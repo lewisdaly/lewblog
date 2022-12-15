@@ -38,30 +38,21 @@ export default class TBRunner {
   }
 
   /**
-   * @description Cleans up all instances of TigerBeetle
-   */
-  public async cleanUp() {
-    // Not sure if we'll need this
-    await Promise.all(Object.values(this._tbInstances)
-      .map(i => this.killTBInstance(i)))
-  }
-
-  /**
    * @description Spawns a single instance TB container and waits
    *   for it to be ready
    */
   public async spawnTBInstance(options: RunOptions = {}): Promise<RunningTBResult> {
     // sensible defaults
-    let pathToTBBinary = process.env.PATH_TO_TIGERBEETLE || './node_modules/tigerbeetle-node/tigerbeetle'
+    let pathToTBBinary = process.env.PATH_TO_TIGERBEETLE
     fs.statSync(pathToTBBinary)
 
     let clusterId = 0n
-    
+
     let port = options.port
     if (!port) {
       port = await this._getRandomFreePort()
     }
-    
+
     let pathToTigerBeetleFile = options.pathToTigerBeetleFile
     if (!pathToTigerBeetleFile) {
       const tmpDir = await this._openTempDir()
@@ -79,13 +70,9 @@ export default class TBRunner {
       pathToTigerBeetleFile
     ]
     console.log(`execSync cmd: ${formatCmd.join(' ')}`)
-    const formatResult = child_process.execSync(formatCmd.join(' '), {
-      stdio: 'pipe'
-    })
-    console.log(`spawnTBInstance format output is: ${formatResult.toString('utf-8')}`)
 
     // start tigerbeetle
-    // equvalent to running:
+    // equivalent to running:
     // `./tigerbeetle start --addresses=0.0.0.0:3000 0_0.tigerbeetle`
     const startCmd = [
       'start',
@@ -97,10 +84,6 @@ export default class TBRunner {
       pathToTBBinary,
       startCmd
     )
-    
-    console.log('sleeping for 2s to wait for TB to be up!')
-    // TODO can we improve this?
-    // await testSleep(2 * 1000)
 
     tbStartProcess.stdout.on('data', (data) => {
       console.log(`stdout: ${data}`);
@@ -115,7 +98,7 @@ export default class TBRunner {
       // Clean up the file
       fs.rmSync(pathToTigerBeetleFile!)
     });
-    
+
     const result = {
       process: tbStartProcess,
       pid: tbStartProcess.pid,
@@ -132,6 +115,15 @@ export default class TBRunner {
    */
   public async killTBInstance(instance: RunningTBResult): Promise<void> {
     instance.process.kill('SIGTERM')
+  }
+
+  /**
+   * @description Cleans up all instances of TigerBeetle
+   */
+  public async cleanUp() {
+    // Not sure if we'll need this
+    await Promise.all(Object.values(this._tbInstances)
+      .map(i => this.killTBInstance(i)))
   }
 
   /**

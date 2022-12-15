@@ -14,11 +14,7 @@ describe('TigerBeetle', () => {
     })
   })
 
-  afterAll(async () => {
-    await runner.cleanUp()
-  })
-
   it('has spawned the tb instance', async () => {
-    console.log(instance)
+    console.log('TB instance at PID', instance.pid)
   })
 })

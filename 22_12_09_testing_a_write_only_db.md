@@ -42,209 +42,17 @@ For this example, let's use Typescript with Jest as our test runner. As you'll s
 Let's start with a simple test file, `example_1.test.ts`:
 
 ```ts
-import { Client, createClient } from "tigerbeetle-node"
-import NativeTBRunner, { RunningTBResult } from "./TBRunner"
-
-describe('TigerBeetle', () => {
-  const runner = new NativeTBRunner()
-  let instance: RunningTBResult
-  let client: Client
-
-  beforeEach(async () => {
-    instance = await runner.spawnTBInstance();
-    client = createClient({
-      cluster_id: 0,
-      replica_addresses: [instance.port]
-    })
-  })
-
-  it('has spawned the tb instance', async () => {
-    console.log(instance)
-  })
-})
+// TODO: replaceme example_1.ts
 ```
 
-_note: you can find the full working code examples in the associated Github repo [here](TODO: link)_
+_note: you can find the full working code examples in the associated Github repo [here](https://github.com/lewisdaly/lewblog/tree/master/examples/testing_write_only_db)_
 
 You can see here, in the `beforeEach()` hook, that we are spawning a new TigerBeetle instance for each individual test.
 
 This test file depends on the following file `TBRunner.ts`:
 
 ```ts
-import * as fs from 'fs';
-import * as net from "net";
-import { mkdtemp } from 'node:fs/promises';
-import * as os from 'os';
-
-import * as child_process from 'node:child_process';
-import * as path from 'path';
-
-export interface RunOptions {
-  // Defaults to ./node_modules/tigerbeetle-node/tigerbeetle
-  pathToTBBinary?: string,
-  // Will be assigned a random clusterId if not set
-  clusterId?: bigint,
-  // Will be assigned a random port if not set
-  port?: number,
-  // data file path, will default to a temporary directory
-  pathToTigerBeetleFile?: string
-}
-
-export interface RunningTBResult {
-  process: child_process.ChildProcessWithoutNullStreams,
-  pid: number,
-  port: number
-}
-
-/**
- * @class TBRunner
- * @description Runs a locally installed binary of TigerBeetle
- *   Exposes the same interface as ContainerRunner, but just 
- *   without the containers!
- */
-export default class TBRunner {
-  // A map of pid -> RunningTBResult
-  private _tbInstances: Record<string, RunningTBResult>
-
-  constructor() {
-    this._tbInstances = {}
-  }
-
-  /**
-   * @description Spawns a single instance TB container and waits
-   *   for it to be ready
-   */
-  public async spawnTBInstance(options: RunOptions = {}): Promise<RunningTBResult> {
-    // sensible defaults
-    let pathToTBBinary = process.env.PATH_TO_TIGERBEETLE 
-    fs.statSync(pathToTBBinary)
-
-    let clusterId = 0n
-    
-    let port = options.port
-    if (!port) {
-      port = await this._getRandomFreePort()
-    }
-    
-    let pathToTigerBeetleFile = options.pathToTigerBeetleFile
-    if (!pathToTigerBeetleFile) {
-      const tmpDir = await this._openTempDir()
-      pathToTigerBeetleFile = `${tmpDir}/0_0.tigerbeetle`
-    }
-
-    // format the file
-    // equivalent to running:
-    // `./tigerbeetle format --cluster=0 --replica=0 0_0.tigerbeetle`
-    const formatCmd = [
-      pathToTBBinary,
-      'format',
-      `--cluster=${clusterId.toString()}`,
-      `--replica=0`,
-      pathToTigerBeetleFile
-    ]
-    console.log(`execSync cmd: ${formatCmd.join(' ')}`)
-    const formatResult = child_process.execSync(formatCmd.join(' '), {
-      stdio: 'pipe'
-    })
-    console.log(`spawnTBInstance format output is: ${formatResult.toString('utf-8')}`)
-
-    // start tigerbeetle
-    // equivalent to running:
-    // `./tigerbeetle start --addresses=0.0.0.0:3000 0_0.tigerbeetle`
-    const startCmd = [
-      'start',
-      `--addresses=0.0.0.0:${port}`,
-      pathToTigerBeetleFile
-    ]
-    console.log(`spawn cmd: ${pathToTBBinary} ${startCmd.join(' ')}`)
-    const tbStartProcess = child_process.spawn(
-      pathToTBBinary,
-      startCmd
-    )
-    
-    console.log('sleeping for 2s to wait for TB to be up!')
-    // TODO can we improve this?
-    // await testSleep(2 * 1000)
-
-    tbStartProcess.stdout.on('data', (data) => {
-      console.log(`stdout: ${data}`);
-    });
-
-    tbStartProcess.stderr.on('data', (data) => {
-      console.log(`stderr: ${data}`);
-    });
-
-    tbStartProcess.on('close', (code) => {
-      console.log(`child process exited with code ${code}`);
-      // Clean up the file
-      fs.rmSync(pathToTigerBeetleFile!)
-    });
-    
-    const result = {
-      process: tbStartProcess,
-      pid: tbStartProcess.pid,
-      port
-    }
-    // Save internally in case we want to be able to kill all TB Instances
-    this._tbInstances[tbStartProcess.pid] = result
-
-    return result
-  }
-
-  /**
-   * @description Kill a running tb instance process
-   */
-  public async killTBInstance(instance: RunningTBResult): Promise<void> {
-    instance.process.kill('SIGTERM')
-  }
-
-
-  /**
-   * @description Cleans up all instances of TigerBeetle
-   */
-  public async cleanUp() {
-    // Not sure if we'll need this
-    await Promise.all(Object.values(this._tbInstances)
-      .map(i => this.killTBInstance(i)))
-  }
-
-  /**
-   * @description Looks for an open port by sneakily starting a server with a random
-   *   port and quickly closing it. Very nice and sneaky.
-   */
-  public async _getRandomFreePort(): Promise<number> {
-    return new Promise((res, rej) => {
-      const srv = net.createServer();
-      srv.listen(0, () => {
-        const address = srv.address()
-        if (address === null || typeof address === 'string') {
-          console.log('createServer() failed')
-          rej(new Error('createServer() failed.'))
-          return
-        }
-        const port = address.port
-
-        // Then close the server
-        srv.close((err) => {
-          if (err) {
-            console.log(err)
-            rej(err)
-            return
-          }
-          res(port)
-        })
-      });
-    })
-  }
-
-  /**
-   * @description Create a random temporary directory
-   */
-  public async _openTempDir(): Promise<string> {
-    const tmpDir = os.tmpdir()
-    return await mkdtemp(path.join(tmpDir, 'foo-'));
-  }
-}
+// TODO: replaceme TBRunner.ts
 ```
 
 In these ~170 lines we define a `TBRunner` class, which is responsbile for spawning and keeping track of multiple instances of TigerBeetle.
@@ -287,7 +95,8 @@ and creates a temporary directory to put the `.tigerbeetle` file.
 ### Installing TigerBeetle
 
 You can [follow the instructions](https://github.com/tigerbeetledb/tigerbeetle#single-binary) on the TigerBeetle repo to 
-install the TigerBeetle binary - and it looks like they have precompiled binaries hosted on GitHub you can download.
+install the TigerBeetle binary - and it looks like they now have precompiled binaries hosted on GitHub you can download. I found
+the `TODO!!` release to work with `tigerbeetle-node v0.11.6`.
 
 The important thing is to grab the same version that the client, `tigerbeetle-node` uses, which as of the time of writing is 
 
@@ -295,7 +104,7 @@ After that, in your local environment, set `PATH_TO_TIGERBEETLE` to wherever you
 
 ### Running the test:
 
-There's a bit of other config for our `package.json` and `tsconfig.json` that needs to be set up (you can check out my code [here]()), but once that's in place we can run our test file:
+There's a bit of other config for our `package.json` and `tsconfig.json` that needs to be set up (you can check out my code [here](https://github.com/lewisdaly/lewblog/tree/master/examples/testing_write_only_db)), but once that's in place we can run our test file:
 
 ```bash
 npx jest example_1.test.ts
@@ -303,7 +112,30 @@ npx jest example_1.test.ts
 
 Which prints some output like the following:
 ```bash
-# TODO!!!
+  console.log
+    execSync cmd: /Users/lewisdaly/developer/buoy/tigerbeetle/tigerbeetle format --cluster=0 --replica=0 /var/folders/8m/w6z8z73d2tbg3jb3v8h615600000gn/T/foo-LG1Itu/0_0.tigerbeetle
+
+      at TBRunner.spawnTBInstance (TBRunner.ts:72:13)
+
+  console.log
+    spawn cmd: /Users/lewisdaly/developer/buoy/tigerbeetle/tigerbeetle start --addresses=0.0.0.0:61554 /var/folders/8m/w6z8z73d2tbg3jb3v8h615600000gn/T/foo-LG1Itu/0_0.tigerbeetle
+
+      at TBRunner.spawnTBInstance (TBRunner.ts:82:13)
+
+  console.log
+    TB instance at PID 60816
+
+      at Object.<anonymous> (example_1.test.ts:22:13)
+
+ PASS  ./example_1.test.ts
+  TigerBeetle
+    ✓ has spawned the tb instance (117 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       1 passed, 1 total
+Snapshots:   0 total
+Time:        2.712 s, estimated 3 s
+Ran all test suites matching /example_1.test.ts/i.
 ```
 
 
@@ -323,7 +155,8 @@ afterAll(async () => {
 
 Now to prove that this approach works really well, let's run two tests with different TigerBeetles:
 
-```
+```ts
+// TODO: replaceme example_3_multbeetle.test.ts
 ```
 
 It works! 

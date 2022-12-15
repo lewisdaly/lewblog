@@ -14,20 +14,18 @@ describe('TigerBeetle', () => {
     })
   })
 
-  it('uses the tb runner', async () => {
+  it.only('uses the tb runner', async () => {
     const accountDefaults = {
       user_data: 0n,
       reserved: Buffer.alloc(48, 0),
       ledger: 1,
       code: 1,
-      // TODO: make multiple account opening atomic in the future
-      // TODO: add debits and credits flags, based on the code!
       flags: 0,
       debits_pending: 0n,
       debits_posted: 0n,
       credits_pending: 0n,
       credits_posted: 0n,
-      timestamp: 0n // u64, Reserved: This will be set by the server.
+      timestamp: 0n
     }
     // Open 2 random accounts, 111 and 222
     await client.createAccounts([
@@ -54,7 +52,7 @@ describe('TigerBeetle', () => {
       code: 0,
       flags: 0,
       amount: 100n,
-      timestamp: 0n // u64, Reserved: This will be set by the server.
+      timestamp: 0n
     }])
 
     // Lookup the accounts
