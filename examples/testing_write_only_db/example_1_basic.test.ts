@@ -2,6 +2,8 @@ import { Client, createClient } from "tigerbeetle-node"
 import NativeTBRunner, { RunningTBResult } from "./TBRunner"
 
 describe('TigerBeetle', () => {
+  jest.setTimeout(10000)
+  
   const runner = new NativeTBRunner()
   let instance: RunningTBResult
   let client: Client

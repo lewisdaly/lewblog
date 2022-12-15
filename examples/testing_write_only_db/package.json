@@ -7,7 +7,7 @@
     "test": "jest tigerbeetle.test.ts"
   },
   "dependencies": {
-    "tigerbeetle-node": "0.11.6",
+    "tigerbeetle-node": "0.10.0",
     "tslib": "^2.3.1",
     "typescript": "^4.8.4"
   },

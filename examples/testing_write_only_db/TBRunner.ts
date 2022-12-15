@@ -70,6 +70,7 @@ export default class TBRunner {
       pathToTigerBeetleFile
     ]
     console.log(`execSync cmd: ${formatCmd.join(' ')}`)
+    child_process.execSync(formatCmd.join(' '))
 
     // start tigerbeetle
     // equivalent to running:
@@ -84,6 +85,9 @@ export default class TBRunner {
       pathToTBBinary,
       startCmd
     )
+
+    // sleep for 2s for TB to be up
+    await this._testSleep(2000)
 
     tbStartProcess.stdout.on('data', (data) => {
       console.log(`stdout: ${data}`);
@@ -116,6 +120,7 @@ export default class TBRunner {
   public async killTBInstance(instance: RunningTBResult): Promise<void> {
     instance.process.kill('SIGTERM')
   }
+
 
   /**
    * @description Cleans up all instances of TigerBeetle
@@ -161,5 +166,11 @@ export default class TBRunner {
   public async _openTempDir(): Promise<string> {
     const tmpDir = os.tmpdir()
     return await mkdtemp(path.join(tmpDir, 'foo-'));
+  }
+
+  public async _testSleep(timeMs: number): Promise<void> {
+    return new Promise(resolve => {
+      setTimeout(resolve, timeMs)
+    })
   }
 }

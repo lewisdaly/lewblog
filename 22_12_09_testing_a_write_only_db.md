@@ -9,9 +9,9 @@ One of the primary reasons for choosing TigerBeetle was for the ability to run i
 
 Other ledgers I evaluated either required our tests to call a live API (great for simple tests but doesn't scale to large teams or automated tests), or spin up a flock of docker containers in order to run a local ledger. There's another post I'm yet to write about my choices for TigerBeetle, and where it fits in the spectrum of ledger databases, so I won't go into all of the choices here.
 
-During my evaluation phase of TigerBeetle, when I tried to write integration tests for services which created Accounts or Transfers in TigerBeetle, I ran into a problem: TigerBeetle has no `TRUNCATE` or `DELETE`!
+During my evaluation phase of TigerBeetle, when I tried to write integration tests for services which created Accounts or Transfers in TigerBeetle, I ran into a problem: TigerBeetle has no `TRUNCATE TABLE` or `DELETE FROM`!
 
-I can see the appeal of an append only ledger for the critical business functions that TigerBeetle will handle, but in order to adequately test our code that depends on TigerBeetle, we need a way to either isolate our tests from one another or reset the database in between tests.
+I can see the appeal of an append only ledger for the critical business functions that TigerBeetle will handle, but in order to adequately test our code that depends on TigerBeetle, we need a way to either isolate the state of our tests from one another or reset the database in between tests.
 
 
 ## The Approach
@@ -26,11 +26,9 @@ When I'm writing integration tests that depend on external services (say, for ex
 
 ### Inspiration from SQL-Lite
 
-Another approach that I've seen is to use an in-memory version of a database for integration tests, and that's the approach that inspired this post.
+Another approach that I've seen is to use an in-memory version of a database for integration tests, which is the approach that inspired this post.
 
-<!-- TODO: insert screenshot of this feature request on GitHub -->
-
-This has the added improved developer experience of spinning up the dependencies inside the scope of each test file, so there's no need to run something like `docker-compose up -d` _before_ running the tests. It's easier to create a test experience that 'just works'.
+This has the added improved developer experience of spinning up the dependencies inside the scope of each test file, so there's no need to run something like `docker-compose up -d` _before_ running the tests. It's easier to create a test experience that works out of the box.
 
 ## The Code
 
@@ -47,7 +45,7 @@ Let's start with a simple test file, `example_1.test.ts`:
 
 _note: you can find the full working code examples in the associated Github repo [here](https://github.com/lewisdaly/lewblog/tree/master/examples/testing_write_only_db)_
 
-You can see here, in the `beforeEach()` hook, that we are spawning a new TigerBeetle instance for each individual test.
+You can see here, in the `beforeEach()` hook, that we spawn a new TigerBeetle instance for each individual test.
 
 This test file depends on the following file `TBRunner.ts`:
 
