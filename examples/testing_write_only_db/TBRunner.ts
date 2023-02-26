@@ -116,9 +116,16 @@ export default class TBRunner {
 
   /**
    * @description Kill a running tb instance process
+   * 
+   *   We need to wait a short amount of time for `tbStartProcess.on('close')` to
+   *   be triggered, and clean up the file - this lazy sleep option works, but could
+   *   be improved
    */
   public async killTBInstance(instance: RunningTBResult): Promise<void> {
-    instance.process.kill('SIGTERM')
+    return new Promise(res => {
+      instance.process.kill('SIGTERM')
+      return setTimeout(res, 100);
+    })
   }
 
 

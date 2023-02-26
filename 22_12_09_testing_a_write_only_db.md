@@ -5,7 +5,7 @@ Notes and thoughts on writing integration tests with TigerBeetle.
 
 ## The Challenge
 
-One of the primary reasons for choosing TigerBeetle was for the ability to run it locally.
+One of my primary reasons for choosing TigerBeetle was for the ability to run it locally.
 
 Other ledgers I evaluated either required our tests to call a live API (great for simple tests but doesn't scale to large teams or automated tests), or spin up a flock of docker containers in order to run a local ledger. There's another post I'm yet to write about my choices for TigerBeetle, and where it fits in the spectrum of ledger databases, so I won't go into all of the choices here.
 
@@ -24,7 +24,7 @@ When I'm writing integration tests that depend on external services (say, for ex
   - Additionally, each test case, or test file is responsible for cleaning up after itself, either by keeping track of the rows that they created and deleting them from the database table, or (if I'm too lazy), truncating each table in the database.
 3. Pass/Fail the tests based on the results.
 
-### Inspiration from SQL-Lite
+### Inspiration from SQLLite
 
 Another approach that I've seen is to use an in-memory version of a database for integration tests, which is the approach that inspired this post.
 
@@ -37,10 +37,10 @@ For this example, let's use Typescript with Jest as our test runner. As you'll s
 
 ### First Pass - Spawning an instance
 
-Let's start with a simple test file, `example_1.test.ts`:
+Let's start with a simple test file, `example_1._basic.test.ts`:
 
 ```ts
-// TODO: replaceme example_1.ts
+// TODO: copy in ./examples/testing_write_only_db/example_1._basic.test.ts
 ```
 
 _note: you can find the full working code examples in the associated Github repo [here](https://github.com/lewisdaly/lewblog/tree/master/examples/testing_write_only_db)_
@@ -50,7 +50,7 @@ You can see here, in the `beforeEach()` hook, that we spawn a new TigerBeetle in
 This test file depends on the following file `TBRunner.ts`:
 
 ```ts
-// TODO: replaceme TBRunner.ts
+// TODO: copy in ./examples/testing_write_only_db/TBRunner.ts
 ```
 
 In these ~170 lines we define a `TBRunner` class, which is responsbile for spawning and keeping track of multiple instances of TigerBeetle.
@@ -92,11 +92,11 @@ and creates a temporary directory to put the `.tigerbeetle` file.
 
 ### Installing TigerBeetle
 
-You can [follow the instructions](https://github.com/tigerbeetledb/tigerbeetle#single-binary) on the TigerBeetle repo to 
-install the TigerBeetle binary - and it looks like they now have precompiled binaries hosted on GitHub you can download. I found
-the `TODO!!` release to work with `tigerbeetle-node v0.11.6`.
+You can [follow the instructions](https://github.com/tigerbeetledb/tigerbeetle#building-from-source) on the TigerBeetle repo to 
+install the TigerBeetle binary - and it looks like they now have precompiled binaries hosted on GitHub you can download, or you can build
+from source. I'm bulding from source on the `2023-02-20-weekly` tag, and using `tigerbeetle-node v0.11.12`.
 
-The important thing is to grab the same version that the client, `tigerbeetle-node` uses, which as of the time of writing is 
+The important thing is to grab the same version that the client, `tigerbeetle-node` uses, which as of the time of writing is `TODO - verify!!`
 
 After that, in your local environment, set `PATH_TO_TIGERBEETLE` to wherever you installed the `tigerbeetle` binary.
 
@@ -154,20 +154,60 @@ afterAll(async () => {
 Now to prove that this approach works really well, let's run two tests with different TigerBeetles:
 
 ```ts
-// TODO: replaceme example_3_multbeetle.test.ts
+// TODO: copy in ./examples/testing_write_only_db/example_3_multibeetle.test.ts
 ```
 
 It works! 
 
-## Other Approachs
 
+//TODO: fix! this section actually doesn't work! - I get the following error on the 2nd test, I think related to reusing the client:
+
+```
+  console.log
+    execSync cmd: /Users/lewisdaly/developer/buoy/tigerbeetle/tigerbeetle format --cluster=0 --replica=0 /var/folders/8m/w6z8z73d2tbg3jb3v8h615600000gn/T/foo-kwpKhI/0_0.tigerbeetle
+
+      at TBRunner.spawnTBInstance (TBRunner.ts:72:13)
+
+info(io): creating "0_0.tigerbeetle"...
+info(io): allocating 1.25994873046875GiB...
+info(main): 0: formatted: cluster=0
+  console.log
+    spawn cmd: /Users/lewisdaly/developer/buoy/tigerbeetle/tigerbeetle start --addresses=0.0.0.0:65280 /var/folders/8m/w6z8z73d2tbg3jb3v8h615600000gn/T/foo-kwpKhI/0_0.tigerbeetle
+
+      at TBRunner.spawnTBInstance (TBRunner.ts:83:13)
+
+  console.log
+    stderr: info(io): opening "0_0.tigerbeetle"...
+
+      at Socket.<anonymous> (TBRunner.ts:97:15)
+
+  console.log
+    stderr: info(main): 0: Allocated 1643655168 bytes in 12 regions during replica init
+    info(main): 0: cluster=0: listening on 0.0.0.0:65280
+
+      at Socket.<anonymous> (TBRunner.ts:97:15)
+
+
+ RUNS  ./example_3_multibeetle.test.ts
+fish: 'npx jest example_3_multibeetle.…' terminated by signal SIGBUS (Misaligned address error)
+```
+
+Running each test in isolation
+
+
+
+## Other Approaches
 
 
 ### But Lewis, why not use docker containers?
 
 I did! And it didn't work as nicely for me when getting this wode working on my CI/CD environment.
 
-You see
+Most modern CI/CD tools (CircleCI, Gitlab CI) use docker containers behind the scenes to spin up both the environment 
+to be tested and any dependencies alongside. This means that we need to spin up new docker containers from _inside_ our
+jest context - in effect requiring running docker containers inside docker containers. This is doable, but not always 
+easy, and also forces our CI test environment to diverge from our local test environment, bringing about the curse of 
+"but it works on my machine".
 
 
 ### How about random `ledgerId`, `accountId` and `transferId`?
@@ -177,7 +217,10 @@ Each test would essentially live in a different ledger from one another, so we w
 Transfers. In MySQL terms, its akin to creating a new database for every test, with a random name and ids we keep track of. 
 
 I had considered this approach (and I think it could work nicely), but I wanted to make my tests deterministic, and 
-I know that debugging random ids across different test files and console outputs gets old pretty quickly.
+I know that debugging random ids across different test files and console outputs gets old pretty quickly. Additionally, my business
+logic calls for mapping the LedgerId to a Currency Code (e.g. 1 => USD, 2=> AUD, 3 => ZAR), so switching LedgerIds for tests means
+making a static mapping that can be defined in my application to a dynamic mapping, which also makes it hard to debug and verify
+in production.
 
 ## In Summary
 

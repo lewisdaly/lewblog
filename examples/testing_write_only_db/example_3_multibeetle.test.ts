@@ -1,12 +1,16 @@
-import { Client, createClient } from "tigerbeetle-node"
+import { Client } from "tigerbeetle-node"
 import NativeTBRunner, { RunningTBResult } from "./TBRunner"
 
 describe('TigerBeetle', () => {
+  jest.setTimeout(10 * 1000)
   const runner = new NativeTBRunner()
   let instance: RunningTBResult
   let client: Client
 
   beforeEach(async () => {
+    jest.resetModules()
+    const { createClient } = require('tigerbeetle-node');
+
     instance = await runner.spawnTBInstance();
     client = createClient({
       cluster_id: 0,
@@ -14,7 +18,13 @@ describe('TigerBeetle', () => {
     })
   })
 
-  it.only('uses the tb runner', async () => {
+  afterEach(async () => {
+    client.destroy()
+    await runner.cleanUp()
+  })
+
+  it('1. uses the tb runner', async () => {
+   
     const accountDefaults = {
       user_data: 0n,
       reserved: Buffer.alloc(48, 0),
@@ -28,6 +38,7 @@ describe('TigerBeetle', () => {
       timestamp: 0n
     }
     // Open 2 random accounts, 111 and 222
+    console.log('createAccounts')
     await client.createAccounts([
       {
         id: 111n,
@@ -60,7 +71,13 @@ describe('TigerBeetle', () => {
     console.log('foundAccounts', foundAccounts)
   })
 
-  it('does not contain the accounts from the other instance', () => {
-    console.log('TODO!')
+  it('2. does not contain the accounts from the other instance', async () => {
+    // lookup the accounts from the other test
+    const foundAccounts = await client.lookupAccounts([111n, 222n])
+
+
+    // they don't exist!
+    console.log('foundAccounts', foundAccounts)
+
   })
 })

@@ -17,6 +17,7 @@ describe('TigerBeetle', () => {
   })
 
   afterAll(async () => {
+    client.destroy()
     await runner.cleanUp()
   })
 
